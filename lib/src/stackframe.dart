@@ -15,7 +15,7 @@ class Stackframe {
   final int column;
 
   ///
-  final String details;
+  final String? details;
 
   ///
   Stackframe(this.sourceFile, this.lineNo, this.column, this.details);

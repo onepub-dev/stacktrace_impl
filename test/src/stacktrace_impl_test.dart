@@ -8,12 +8,12 @@ void main() {
     /// create a stack trace from the current line.
     StackTraceImpl(skipFrames: 1);
 
-    runZoned(() {
+    runZonedGuarded(() {
       print('hi');
-    }, onError: (Object e, StackTrace st) {
+    }, (Object e, StackTrace st) {
       /// Create a StackTraceImpl from a StackTrace
       var sti = StackTraceImpl.fromStackTrace(st);
-      for (var frame in sti.frames) {
+      for (var frame in sti.frames!) {
         print('${frame.sourceFile} ${frame.lineNo} ${frame.column}');
       }
     });
