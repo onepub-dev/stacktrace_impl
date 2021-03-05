@@ -1,3 +1,6 @@
+# 2.0.1
+frames now returns an empty list rather than null.
+
 # 2.0.0
 migrated to nullsaftey
 
