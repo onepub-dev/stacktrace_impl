@@ -4,31 +4,34 @@ import 'dart:io';
 
 import 'package:path/path.dart';
 
-import 'stackframe.dart';
+import '../stacktrace_impl.dart';
 
-///
+/// Provides dart stack frame handling.
 class StackTraceImpl implements core.StackTrace {
   static final _stackTraceRegex = RegExp(r'#[0-9]+[\s]+(.+) \(([^\s]+)\)');
   final core.StackTrace _stackTrace;
 
-  final String _workingDirectory;
+  /// The working directory of the project (if provided)
+  final String? _workingDirectory;
   final int _skipFrames;
 
-  List<Stackframe> _frames;
+  List<Stackframe>? _frames;
 
   /// You can suppress call frames from showing
   /// by specifing a non-zero value for [skipFrames]
-  /// If the workingDirectory is provided we will output
+  /// If the [workingDirectory] is provided we will output
   /// a full file path to the dart library.
-  StackTraceImpl({int skipFrames = 0, String workingDirectory})
+  StackTraceImpl({int skipFrames = 0, String? workingDirectory})
       : _stackTrace = core.StackTrace.current,
         _skipFrames = skipFrames + 1, // always skip ourselves.
         _workingDirectory = workingDirectory;
 
   ///
-  StackTraceImpl.fromStackTrace(this._stackTrace,
-      {String workingDirectory, int skipFrames = 0})
-      : _skipFrames = skipFrames,
+  StackTraceImpl.fromStackTrace(
+    this._stackTrace, {
+    String? workingDirectory,
+    int skipFrames = 0,
+  })  : _skipFrames = skipFrames,
         _workingDirectory = workingDirectory {
     if (_stackTrace is StackTraceImpl) {
       _frames = (_stackTrace as StackTraceImpl).frames;
@@ -38,9 +41,7 @@ class StackTraceImpl implements core.StackTrace {
   ///
   /// Returns a File instance for the current stackframe
   ///
-  File get sourceFile {
-    return frames[0].sourceFile;
-  }
+  File get sourceFile => frames[0].sourceFile;
 
   ///
   /// Returns the Filename for the current stackframe
@@ -55,27 +56,27 @@ class StackTraceImpl implements core.StackTrace {
   ///
   /// Returns the filename for the current stackframe
   ///
-  int get lineNo {
-    return frames[0].lineNo;
-  }
+  int get lineNo => frames[0].lineNo;
 
   @override
-  String toString() {
-    return formatStackTrace();
-  }
+  String toString() => formatStackTrace()!;
 
   /// Outputs a formatted string of the current [StackTraceImpl]
   /// showing upto [methodCount] methods in the trace.
   /// [methodCount] defaults to 10.
 
-  String formatStackTrace(
-      {bool showPath = false, int methodCount = 10, int skipFrames = 0}) {
-    var formatted = <String>[];
+  String? formatStackTrace({
+    bool showPath = false,
+    int methodCount = 10,
+    int skipFrames = 0,
+  }) {
+    var _skipFrames = skipFrames;
+    final formatted = <String>[];
     var count = 0;
 
-    for (var stackFrame in frames) {
-      if (skipFrames > 0) {
-        skipFrames--;
+    for (final stackFrame in frames) {
+      if (_skipFrames > 0) {
+        _skipFrames--;
         continue;
       }
       String sourceFile;
@@ -84,8 +85,8 @@ class StackTraceImpl implements core.StackTrace {
       } else {
         sourceFile = basename(stackFrame.sourceFile.path);
       }
-      var newLine =
-          ('$sourceFile : ${stackFrame.details} : ${stackFrame.lineNo}');
+      final newLine =
+          '$sourceFile : ${stackFrame.details} : ${stackFrame.lineNo}';
 
       if (_workingDirectory != null) {
         formatted.add('file:///$_workingDirectory$newLine');
@@ -105,70 +106,117 @@ class StackTraceImpl implements core.StackTrace {
   }
 
   ///
-  List<Stackframe> get frames {
-    _frames ??= _extractFrames();
-    return _frames;
-  }
+  List<Stackframe> get frames => _frames ??= _extractFrames();
 
   List<Stackframe> _extractFrames() {
-    var lines = _stackTrace.toString().split('\n');
+    final lines = _stackTrace.toString().split('\n');
 
     // we don't want the call to StackTrace to be on the stack.
     var skipFrames = _skipFrames;
 
-    var stackFrames = <Stackframe>[];
-    for (var line in lines) {
+    final stackFrames = <Stackframe>[];
+    for (final line in lines) {
       if (skipFrames > 0) {
         skipFrames--;
         continue;
       }
-      var match = _stackTraceRegex.matchAsPrefix(line);
-      if (match == null) continue;
+      final match = _stackTraceRegex.matchAsPrefix(line);
+      if (match == null) {
+        continue;
+      }
 
-      // source is one of two formats
-      // file:///.../package/filename.dart:column:line
-      // package:/package/.path./filename.dart:column:line
-      var source = match.group(2);
-      var sourceParts = source.split(':');
+      // source is one of following formats
+      /// Linux
+      /// file:///.../package/filename.dart:line:column
+      ///
+      /// Windows
+      /// (file:///d:/a/dcli/dcli/bin/dcli_install.dart:line:column
+      ///
+      /// Package
+      /// package:/package/.path./filename.dart:line:column
+      ///
+      final source = match.group(2)!;
+      final sourceParts = source.split(':');
       ArgumentError.value(
           sourceParts.length == 4,
           'Stackframe source does not contain the expeted no of colons '
           "'$source'");
-
       var column = '0';
       var lineNo = '0';
       var sourcePath = sourceParts[1];
-      if (sourceParts.length > 2) {
-        lineNo = sourceParts[2];
-      }
-      if (sourceParts.length > 3) {
-        column = sourceParts[3];
+
+      final sourceType = source.contains('file:')
+          ? FrameSourceType.file
+          : source.contains('package:')
+              ? FrameSourceType.package
+              : FrameSourceType.other;
+
+      if (Platform.isWindows && sourceType == FrameSourceType.file) {
+        switch (sourceParts.length) {
+          case 3:
+            sourcePath = _getWindowsPath(sourceParts);
+            break;
+          case 4:
+            sourcePath = _getWindowsPath(sourceParts);
+            lineNo = sourceParts[3];
+            break;
+          case 5:
+            sourcePath = _getWindowsPath(sourceParts);
+            lineNo = sourceParts[3];
+            column = sourceParts[4];
+            break;
+          default:
+            sourcePath = sourceParts.join(':');
+            break;
+        }
+      } else {
+        if (sourceParts.length > 2) {
+          lineNo = sourceParts[2];
+        }
+        if (sourceParts.length > 3) {
+          column = sourceParts[3];
+        }
       }
 
       // the actual contents of the line (sort of)
-      var details = match.group(1);
+      final details = match.group(1);
 
+      Stackframe frame;
+
+      /// closures don't have a sourcePath.
       sourcePath = sourcePath.replaceAll('<anonymous closure>', '()');
       sourcePath = sourcePath.replaceAll('package:', '');
       // sourcePath = sourcePath.replaceFirst('<package_name>', '/lib');
 
-      var frame = Stackframe(
-          File(sourcePath), int.parse(lineNo), int.parse(column), details);
+      frame = Stackframe(
+        sourceType: sourceType,
+        sourceFile: File(sourcePath),
+        lineNo: int.parse(lineNo),
+        column: int.parse(column),
+        details: details,
+      );
       stackFrames.add(frame);
     }
     return stackFrames;
   }
 
-  ///
-  StackTraceImpl merge(core.StackTrace microTask) {
-    var _microImpl = StackTraceImpl.fromStackTrace(microTask);
+  String _getWindowsPath(List<String> sourceParts) {
+    final len = sourceParts[1].length;
+    return '${sourceParts[1].substring(len - 1)}'
+        ':${sourceParts[2]}';
+  }
 
-    var merged = StackTraceImpl.fromStackTrace(this);
+  /// merges two stack traces. Used when handling futures and you want
+  /// combine a futures stack exception with the original calls stack
+  StackTraceImpl merge(core.StackTrace microTask) {
+    final _microImpl = StackTraceImpl.fromStackTrace(microTask);
+
+    final merged = StackTraceImpl.fromStackTrace(this);
 
     var index = 0;
-    for (var frame in _microImpl.frames) {
+    for (final frame in _microImpl.frames) {
       // best we can do is exclude any files that are in the flutter src tree.
-      if (_isExcludedSource(frame)) {
+      if (isExcludedSource(frame)) {
         continue;
       }
       merged.frames.insert(index++, frame);
@@ -177,14 +225,25 @@ class StackTraceImpl implements core.StackTrace {
   }
 }
 
-var _excludedSource = ['/flutter', '/ui', '/async', 'isolate'];
+/// returns the root path.
+/// On Linux and MacOS this will be '/'
+/// On Windows this will be r'C:\'. The drive letter will depend on the
+/// drive of your present working directory (pwd).
+String get rootPath => rootPrefix(Directory.current.path);
+
+List<String> _excludedSource = [
+  join(rootPath, 'flutter'),
+  join(rootPath, 'ui'),
+  join(rootPath, 'async'),
+  'isolate'
+];
 
 ///
-bool _isExcludedSource(Stackframe frame) {
+bool isExcludedSource(Stackframe frame) {
   var excludeSource = false;
 
-  var path = frame.sourceFile.absolute.path;
-  for (var exclude in _excludedSource) {
+  final path = frame.sourceFile.absolute.path;
+  for (final exclude in _excludedSource) {
     if (path.startsWith(exclude)) {
       excludeSource = true;
       break;
