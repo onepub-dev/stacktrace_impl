@@ -229,12 +229,12 @@ class StackTraceImpl implements core.StackTrace {
 /// On Linux and MacOS this will be '/'
 /// On Windows this will be r'C:\'. The drive letter will depend on the
 /// drive of your present working directory (pwd).
-String get rootPath => rootPrefix(Directory.current.path);
+String get _rootPath => rootPrefix(Directory.current.path);
 
 List<String> _excludedSource = [
-  join(rootPath, 'flutter'),
-  join(rootPath, 'ui'),
-  join(rootPath, 'async'),
+  join(_rootPath, 'flutter'),
+  join(_rootPath, 'ui'),
+  join(_rootPath, 'async'),
   'isolate'
 ];
 

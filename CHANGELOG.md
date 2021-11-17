@@ -1,3 +1,6 @@
+# 2.2.1
+- removed rootPath from the public interface.
+
 # 2.2.0
 - upgraded dependencies.
 
