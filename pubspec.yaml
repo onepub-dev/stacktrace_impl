@@ -1,5 +1,5 @@
 name: stacktrace_impl
-version: 2.0.1
+version: 2.0.2
 homepage: https://github.com/bsutton/stacktrace_impl
 description: Allows you to instantiate a StackTrace and provides logging control.
 environment: 

@@ -1,3 +1,6 @@
+# 2.0.2
+- Increased the default stacktrace depth on the format method to 30.
+
 # 2.0.1
 frames now returns an empty list rather than null.
 
