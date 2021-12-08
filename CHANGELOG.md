@@ -1,3 +1,6 @@
+# 2.0.3
+- migrated to lints and updated to latest packages.
+
 # 2.0.2
 - Increased the default stacktrace depth on the format method to 30.
 
