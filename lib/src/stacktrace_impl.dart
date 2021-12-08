@@ -66,10 +66,10 @@ class StackTraceImpl implements core.StackTrace {
 
   /// Outputs a formatted string of the current [StackTraceImpl]
   /// showing upto [methodCount] methods in the trace.
-  /// [methodCount] defaults to 10.
+  /// [methodCount] defaults to 30.
 
   String? formatStackTrace(
-      {bool showPath = false, int methodCount = 10, int skipFrames = 0}) {
+      {bool showPath = false, int methodCount = 30, int skipFrames = 0}) {
     var formatted = <String>[];
     var count = 0;
 
