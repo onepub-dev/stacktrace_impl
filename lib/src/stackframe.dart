@@ -6,6 +6,17 @@ import 'dart:io';
 ///
 class Stackframe {
   ///
+  Stackframe(
+      {required this.sourceType,
+      required this.sourceFile,
+      required this.lineNo,
+      required this.column,
+      required this.details});
+
+  /// The source of the file for this stack frame.
+  final FrameSourceType sourceType;
+
+  ///
   final File sourceFile;
 
   ///
@@ -16,7 +27,17 @@ class Stackframe {
 
   ///
   final String? details;
+}
 
-  ///
-  Stackframe(this.sourceFile, this.lineNo, this.column, this.details);
+/// Indicates where the source file came from
+///
+enum FrameSourceType {
+  /// located in a package.
+  package,
+
+  /// on the local disk
+  file,
+
+  /// unknown
+  other
 }

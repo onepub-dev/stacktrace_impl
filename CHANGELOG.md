@@ -1,11 +1,21 @@
-# 2.0.3
-- migrated to lints and updated to latest packages.
+# 2.2.1
+- removed rootPath from the public interface.
+
+# 2.2.0
+- upgraded dependencies.
+
+# 2.1.0
+ - upgraded to dart 2.12 and nnbd. 
+ - added the file type to each stack frame.
 
 # 2.0.2
-- Increased the default stacktrace depth on the format method to 30.
+- upgraded dependencies.
 
-# 2.0.1
-frames now returns an empty list rather than null.
+# Released 2.0.1
+- frames now returns an empty list rather than null.
+
+# Released 2.0.0
+- migrated to nullsaftey
 
 # 2.0.0
 migrated to nullsaftey
