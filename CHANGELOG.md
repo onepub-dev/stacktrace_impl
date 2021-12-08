@@ -1,3 +1,6 @@
+# 2.3.0
+- Changed default frames in format from 10 to 30
+
 # 2.2.1
 - removed rootPath from the public interface.
 
