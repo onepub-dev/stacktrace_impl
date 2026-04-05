@@ -14,15 +14,6 @@ import '../stacktrace_impl.dart';
 
 /// Provides dart stack frame handling.
 class StackTraceImpl implements core.StackTrace {
-  static final _stackTraceRegex = RegExp(r'#[0-9]+[\s]+(.+) \(([^\s]+)\)');
-  final core.StackTrace _stackTrace;
-
-  /// The working directory of the project (if provided)
-  final String? _workingDirectory;
-  final int _skipFrames;
-
-  List<Stackframe>? _frames;
-
   /// You can suppress call frames from showing
   /// by specifing a non-zero value for [skipFrames]
   /// If the [workingDirectory] is provided we will output
@@ -44,20 +35,30 @@ class StackTraceImpl implements core.StackTrace {
     }
   }
 
+  static final _stackTraceRegex = RegExp(r'#[0-9]+[\s]+(.+) \(([^\s]+)\)');
+  final core.StackTrace _stackTrace;
+
+  /// The working directory of the project (if provided)
+  final String? _workingDirectory;
+  final int _skipFrames;
+
+  List<Stackframe>? _frames;
+
   ///
-  /// Returns a File instance for the current stackframe
+  /// Returns the name of the sourceFile at the
+  /// top of the stack.
   ///
   File get sourceFile => frames[0].sourceFile;
 
   ///
-  /// Returns the Filename for the current stackframe
-  ///
-  String get sourceFilename => basename(sourcePath);
+  /// Returns the Filename for the frame at the
+  /// top of the stack.
+  String get sourceFilename => frames[0].sourceFilename;
 
   ///
   /// returns the full path for the current stackframe file
   ///
-  String get sourcePath => sourceFile.path;
+  String get sourcePath => frames[0].sourcePath;
 
   ///
   /// Returns the filename for the current stackframe
@@ -87,9 +88,10 @@ class StackTraceImpl implements core.StackTrace {
       }
       String sourceFile;
       if (showPath) {
-        sourceFile = stackFrame.sourceFile.path;
+        sourceFile =
+            join(stackFrame.pathToSourceFile, stackFrame.sourceFilename);
       } else {
-        sourceFile = basename(stackFrame.sourceFile.path);
+        sourceFile = basename(stackFrame.sourceFilename);
       }
       final newLine =
           '$sourceFile : ${stackFrame.details} : ${stackFrame.lineNo}';
@@ -150,6 +152,7 @@ class StackTraceImpl implements core.StackTrace {
       var column = '0';
       var lineNo = '0';
       var sourcePath = sourceParts[1];
+      var packageName = '';
 
       final sourceType = source.contains('file:')
           ? FrameSourceType.file
@@ -157,30 +160,35 @@ class StackTraceImpl implements core.StackTrace {
               ? FrameSourceType.package
               : FrameSourceType.other;
 
-      if (Platform.isWindows && sourceType == FrameSourceType.file) {
-        switch (sourceParts.length) {
-          case 3:
-            sourcePath = _getWindowsPath(sourceParts);
-            break;
-          case 4:
-            sourcePath = _getWindowsPath(sourceParts);
-            lineNo = sourceParts[3];
-            break;
-          case 5:
-            sourcePath = _getWindowsPath(sourceParts);
-            lineNo = sourceParts[3];
-            column = sourceParts[4];
-            break;
-          default:
-            sourcePath = sourceParts.join(':');
-            break;
-        }
-      } else {
-        if (sourceParts.length > 2) {
-          lineNo = sourceParts[2];
-        }
-        if (sourceParts.length > 3) {
-          column = sourceParts[3];
+      if (sourceType == FrameSourceType.package) {
+        packageName = sourceParts[1];
+      } else if (sourceType == FrameSourceType.file) {
+        if (Platform.isWindows) {
+          switch (sourceParts.length) {
+            case 3:
+              sourcePath = _getWindowsPath(sourceParts);
+              break;
+            case 4:
+              sourcePath = _getWindowsPath(sourceParts);
+              lineNo = sourceParts[3];
+              break;
+            case 5:
+              sourcePath = _getWindowsPath(sourceParts);
+              lineNo = sourceParts[3];
+              column = sourceParts[4];
+              break;
+            default:
+              sourcePath = sourceParts.join(':');
+              break;
+          }
+        } else {
+          sourcePath = sourcePath.replaceAll('///', '/');
+          if (sourceParts.length > 2) {
+            lineNo = sourceParts[2];
+          }
+          if (sourceParts.length > 3) {
+            column = sourceParts[3];
+          }
         }
       }
 
@@ -196,7 +204,9 @@ class StackTraceImpl implements core.StackTrace {
 
       frame = Stackframe(
         sourceType: sourceType,
-        sourceFile: File(sourcePath),
+        packageName: packageName,
+        pathToSourceFile: dirname(sourcePath),
+        sourceFilename: basename(sourcePath),
         lineNo: int.parse(lineNo),
         column: int.parse(column),
         details: details,
@@ -248,7 +258,7 @@ List<String> _excludedSource = [
 bool isExcludedSource(Stackframe frame) {
   var excludeSource = false;
 
-  final path = frame.sourceFile.absolute.path;
+  final path = absolute(frame.sourcePath);
   for (final exclude in _excludedSource) {
     if (path.startsWith(exclude)) {
       excludeSource = true;
