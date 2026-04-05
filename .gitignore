@@ -1,3 +1,4 @@
 .dart_tool/
 .failed_tracker
 .packages
+.mcp_logs/mcp_command_server.log
